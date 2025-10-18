@@ -108,9 +108,23 @@ frontend/
 
 This frontend is designed to be deployed on Vercel. To deploy:
 
+### Backend Deployment (Required First)
+1. Deploy your FastAPI backend to Vercel first (see main project README)
+2. Note your backend URL (e.g., `https://your-backend-name.vercel.app`)
+
+### Frontend Deployment
 1. Push your code to a Git repository
 2. Connect the repository to Vercel
-3. Vercel will automatically detect the Next.js project and deploy it
+3. **IMPORTANT**: Set the environment variable in Vercel:
+   - Go to your Vercel project settings
+   - Navigate to "Environment Variables"
+   - Add: `NEXT_PUBLIC_API_URL` = `https://your-backend-name.vercel.app`
+4. Vercel will automatically detect the Next.js project and deploy it
+
+### Environment Variables
+The frontend uses `NEXT_PUBLIC_API_URL` to connect to your backend:
+- **Local development**: `http://localhost:8000` (default)
+- **Vercel production**: Set to your deployed backend URL
 
 For local testing, ensure the backend URL in the code matches your deployment environment.
 

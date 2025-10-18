@@ -36,6 +36,12 @@ export default function ChatInterface() {
       return;
     }
     
+    // Basic API key validation
+    if (!apiKey.startsWith('sk-') || apiKey.length < 20) {
+      setError('Please enter a valid OpenAI API key (should start with "sk-" and be at least 20 characters long)');
+      return;
+    }
+    
     if (!userMessage.trim()) {
       setError('Please enter a message');
       return;
@@ -55,7 +61,8 @@ export default function ChatInterface() {
     setUserMessage('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/chat', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
