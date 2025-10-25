@@ -12,7 +12,7 @@ interface Message {
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [userMessage, setUserMessage] = useState('');
-  const [developerMessage, setDeveloperMessage] = useState('');
+  const [developerMessage, setDeveloperMessage] = useState('Respond as a Geordie');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-4.1-mini');
   const [isLoading, setIsLoading] = useState(false);
