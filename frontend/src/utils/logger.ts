@@ -14,9 +14,15 @@ interface LogEntry {
 
 class Logger {
   private isDevelopment: boolean;
+  private isLoggingEnabled: boolean;
 
   constructor() {
     this.isDevelopment = process.env.NODE_ENV === 'development';
+    // Allow enabling logs in production via NEXT_PUBLIC_ENABLE_LOGGING environment variable
+    // This is useful for debugging in deployed environments
+    this.isLoggingEnabled = 
+      this.isDevelopment || 
+      process.env.NEXT_PUBLIC_ENABLE_LOGGING === 'true';
   }
 
   private formatMessage(level: LogLevel, message: string, data?: unknown): LogEntry {
@@ -31,8 +37,8 @@ class Logger {
   private log(level: LogLevel, message: string, data?: unknown): void {
     const logEntry = this.formatMessage(level, message, data);
     
-    // Always log errors, conditionally log others based on environment
-    if (level === 'error' || this.isDevelopment) {
+    // Always log errors, conditionally log others based on environment or config
+    if (level === 'error' || this.isLoggingEnabled) {
       const consoleMethod = level === 'error' ? console.error : 
                            level === 'warn' ? console.warn :
                            level === 'debug' ? console.debug : 
@@ -64,7 +70,7 @@ class Logger {
   }
 
   /**
-   * Log debug messages (only in development)
+   * Log debug messages (enabled in development or when NEXT_PUBLIC_ENABLE_LOGGING is set)
    */
   debug(message: string, data?: unknown): void {
     this.log('debug', message, data);
