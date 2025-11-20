@@ -14,12 +14,15 @@ app = FastAPI(title="OpenAI Chat API")
 
 # Configure CORS (Cross-Origin Resource Sharing) middleware
 # This allows the API to be accessed from different domains/origins
+# Note: When allow_credentials=True, you cannot use allow_origins=["*"]
+# Since we don't need credentials (cookies), we set it to False to allow all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows requests from any origin
-    allow_credentials=True,  # Allows cookies to be included in requests
-    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
+    allow_origins=["*"],  # Allows requests from any origin (works with allow_credentials=False)
+    allow_credentials=False,  # Set to False to allow wildcard origins
+    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, OPTIONS, etc.)
     allow_headers=["*"],  # Allows all headers in requests
+    expose_headers=["*"],  # Exposes all headers in responses
 )
 
 # Define the data model for chat requests using Pydantic
