@@ -280,7 +280,10 @@ export default function ChatInterface() {
             
             <Card.Body className="p-0">
               {/* Settings Panel */}
-              <div className="bg-light border-bottom p-3">
+              <Form 
+                onSubmit={(e) => e.preventDefault()} 
+                className="bg-light border-bottom p-3"
+              >
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-3">
@@ -294,6 +297,7 @@ export default function ChatInterface() {
                           logger.debug('API key input changed', { length: e.target.value.length });
                         }}
                         className="border-primary"
+                        autoComplete="current-password"
                       />
                     </Form.Group>
                   </Col>
@@ -330,7 +334,7 @@ export default function ChatInterface() {
                     </Form.Group>
                   </Col>
                 </Row>
-              </div>
+              </Form>
 
               {/* Chat Messages */}
               <div className="chat-messages p-3" style={{ height: '400px', overflowY: 'auto' }}>
