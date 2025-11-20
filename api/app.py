@@ -6,8 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 # Import OpenAI client for interacting with OpenAI's API
 from openai import OpenAI
+from openai import AuthenticationError, APIError, RateLimitError, APIConnectionError, APITimeoutError
 import os
+import logging
 from typing import Optional
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API")
@@ -40,9 +45,9 @@ async def chat(request: ChatRequest):
         # Initialize OpenAI client with the provided API key
         client = OpenAI(api_key=request.api_key)
         
-        # Create an async generator function for streaming responses
-        async def generate():
-            # Create a streaming chat completion request
+        # Create the stream outside the generator to catch errors before response starts
+        # This allows us to return proper HTTP error codes
+        try:
             stream = client.chat.completions.create(
                 model=request.model,
                 messages=[
@@ -51,18 +56,115 @@ async def chat(request: ChatRequest):
                 ],
                 stream=True  # Enable streaming response
             )
-            
-            # Yield each chunk of the response as it becomes available
-            for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    yield chunk.choices[0].delta.content
+        except AuthenticationError as e:
+            # Invalid API key or authentication failed
+            error_detail = {
+                "error": "Invalid OpenAI API key",
+                "message": "The provided API key is invalid or has expired. Please check your API key and try again.",
+                "details": str(e)
+            }
+            raise HTTPException(status_code=401, detail=error_detail)
+        except RateLimitError as e:
+            # Rate limit exceeded
+            error_detail = {
+                "error": "Rate limit exceeded",
+                "message": "You have exceeded your OpenAI API rate limit. Please try again later.",
+                "details": str(e)
+            }
+            raise HTTPException(status_code=429, detail=error_detail)
+        except APIConnectionError as e:
+            # Network/connection error
+            error_detail = {
+                "error": "Connection error",
+                "message": "Unable to connect to OpenAI API. Please check your internet connection and try again.",
+                "details": str(e)
+            }
+            raise HTTPException(status_code=503, detail=error_detail)
+        except APITimeoutError as e:
+            # Timeout error
+            error_detail = {
+                "error": "Request timeout",
+                "message": "The request to OpenAI API timed out. Please try again.",
+                "details": str(e)
+            }
+            raise HTTPException(status_code=504, detail=error_detail)
+        except APIError as e:
+            # Other OpenAI API errors
+            error_detail = {
+                "error": "OpenAI API error",
+                "message": f"An error occurred while accessing OpenAI API: {str(e)}",
+                "details": str(e)
+            }
+            raise HTTPException(status_code=502, detail=error_detail)
+        
+        # Create an async generator function for streaming responses
+        async def generate():
+            try:
+                # Yield each chunk of the response as it becomes available
+                for chunk in stream:
+                    if chunk.choices[0].delta.content is not None:
+                        yield chunk.choices[0].delta.content
+            except Exception as e:
+                # If an error occurs during streaming, we can't change HTTP status
+                # but we can log it for debugging
+                # In production, you might want to yield an error message
+                logger.error(f"Error during streaming: {str(e)}")
+                raise
 
         # Return a streaming response to the client
         return StreamingResponse(generate(), media_type="text/plain")
     
+    except HTTPException:
+        # Re-raise HTTP exceptions (from the generator)
+        raise
+    except AuthenticationError as e:
+        # Catch authentication errors that occur before streaming starts
+        error_detail = {
+            "error": "Invalid OpenAI API key",
+            "message": "The provided API key is invalid or has expired. Please check your API key and try again.",
+            "details": str(e)
+        }
+        raise HTTPException(status_code=401, detail=error_detail)
+    except RateLimitError as e:
+        # Catch rate limit errors that occur before streaming starts
+        error_detail = {
+            "error": "Rate limit exceeded",
+            "message": "You have exceeded your OpenAI API rate limit. Please try again later.",
+            "details": str(e)
+        }
+        raise HTTPException(status_code=429, detail=error_detail)
+    except APIConnectionError as e:
+        # Catch connection errors that occur before streaming starts
+        error_detail = {
+            "error": "Connection error",
+            "message": "Unable to connect to OpenAI API. Please check your internet connection and try again.",
+            "details": str(e)
+        }
+        raise HTTPException(status_code=503, detail=error_detail)
+    except APITimeoutError as e:
+        # Catch timeout errors that occur before streaming starts
+        error_detail = {
+            "error": "Request timeout",
+            "message": "The request to OpenAI API timed out. Please try again.",
+            "details": str(e)
+        }
+        raise HTTPException(status_code=504, detail=error_detail)
+    except APIError as e:
+        # Catch other OpenAI API errors that occur before streaming starts
+        error_detail = {
+            "error": "OpenAI API error",
+            "message": f"An error occurred while accessing OpenAI API: {str(e)}",
+            "details": str(e)
+        }
+        raise HTTPException(status_code=502, detail=error_detail)
     except Exception as e:
-        # Handle any errors that occur during processing
-        raise HTTPException(status_code=500, detail=str(e))
+        # Handle any other unexpected errors
+        error_detail = {
+            "error": "Internal server error",
+            "message": "An unexpected error occurred. Please try again later.",
+            "details": str(e)
+        }
+        raise HTTPException(status_code=500, detail=error_detail)
 
 # Define a health check endpoint to verify API status
 @app.get("/api/health")

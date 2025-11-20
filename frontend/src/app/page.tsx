@@ -38,11 +38,33 @@ export default function ChatInterface() {
 
   /**
    * Parses error response from the backend to extract meaningful error messages
+   * Handles both structured error objects and simple string error messages
    */
   const parseErrorResponse = async (response: Response): Promise<string> => {
     try {
       const errorData = await response.json();
-      const errorMessage = errorData.detail || errorData.message || 'An unknown error occurred';
+      
+      // Handle structured error response from backend
+      // Backend returns: { "detail": { "error": "...", "message": "...", "details": "..." } }
+      if (errorData.detail) {
+        if (typeof errorData.detail === 'object' && errorData.detail.message) {
+          // Structured error object
+          logger.error('Backend error response', { 
+            status: response.status, 
+            error: errorData.detail.error,
+            message: errorData.detail.message,
+            details: errorData.detail.details
+          });
+          return errorData.detail.message;
+        } else if (typeof errorData.detail === 'string') {
+          // Simple string error
+          logger.error('Backend error response', { status: response.status, error: errorData.detail });
+          return errorData.detail;
+        }
+      }
+      
+      // Fallback to other possible error formats
+      const errorMessage = errorData.message || errorData.error || 'An unknown error occurred';
       logger.error('Backend error response', { status: response.status, error: errorMessage });
       return errorMessage;
     } catch (parseError) {
@@ -183,7 +205,23 @@ export default function ChatInterface() {
 
       if (!response.ok) {
         const errorMessage = await parseErrorResponse(response);
-        const formattedError = formatErrorMessage(errorMessage);
+        
+        // Use HTTP status code to determine error type for better user messages
+        let formattedError = errorMessage;
+        if (response.status === 401) {
+          // Invalid API key - backend already provides a clear message
+          formattedError = errorMessage;
+        } else if (response.status === 429) {
+          // Rate limit exceeded
+          formattedError = errorMessage;
+        } else if (response.status === 502 || response.status === 503 || response.status === 504) {
+          // OpenAI API errors
+          formattedError = errorMessage;
+        } else {
+          // For other errors, use the formatting function as fallback
+          formattedError = formatErrorMessage(errorMessage);
+        }
+        
         logger.error('API request failed', { 
           status: response.status, 
           error: errorMessage,
